@@ -3,20 +3,45 @@
     <header class="home-header">
       <a class="home-title-burger"><img src="../assets/burger.svg"></a>
       <h1 class="home-title">List of todos</h1>
-      <button class="home-title-add">+</button>
+      <button class="home-title-add" v-on:click="addVisible = true">+</button>
     </header>
     <main>
-      <todo-list></todo-list>
+      <add-todo v-if="addVisible" v-on:add="todoAdded"></add-todo>
+      <todo-list :todos="todos"></todo-list>
     </main>
   </section>
 </template>
 
 <script>
+import axios from 'axios'
 import TodoList from './TodoList'
+import AddTodo from './AddTodo'
 
 export default {
   name: 'Home',
-  components: {TodoList}
+  components: {TodoList, AddTodo},
+  data () {
+    return {
+      todos: [],
+      addVisible: false
+    }
+  },
+  mounted () {
+    this.loadTodos()
+  },
+  methods: {
+    loadTodos: function () {
+      axios({method: 'GET', url: '/api/todos'}).then(result => {
+        this.todos = result.data
+      }, error => {
+        console.error(error)
+      })
+    },
+    todoAdded: function (event) {
+      this.addVisible = false
+      this.loadTodos()
+    }
+  }
 }
 </script>
 

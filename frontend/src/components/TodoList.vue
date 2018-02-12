@@ -1,11 +1,11 @@
 <template>
   <table class="todoList">
       <tbody>
-        <template v-for="(todo, index) in todos">
-          <tr class="todoList-task" v-bind:class="{'todoList-task--even': index % 2 === 0}" :key="todo.id">
+        <template v-for="(todo, index) in todoList">
+          <tr class="todoList-task" :class="{'todoList-task--even': index % 2 === 0}" :key="todo.id">
             <td class="todoList-task-details todoList-task-details--checkbox">
-              <input type="checkbox" v-bind:id="`todo-checkbox-${todo.id}`" checked>
-              <label v-bind:for="`todo-checkbox-${todo.id}`" class="todoList-task-checkbox"></label>
+              <input type="checkbox" :id="`todo-checkbox-${todo.id}`" v-on:click="check" :data-index="index" :checked="todo.status === 'DONE'">
+              <label :for="`todo-checkbox-${todo.id}`" class="todoList-task-checkbox"></label>
             </td>
             <td class="todoList-task-details">{{todo.name}}</td>
             <td class="todoList-task-details">{{todo.dueDate}}</td>
@@ -21,17 +21,23 @@ import axios from 'axios'
 
 export default {
   name: 'todo-list',
-  data () {
-    return {
-      todos: []
+  props: ['todos'],
+  computed: {
+    todoList: function () {
+      return this.todos
     }
   },
-  mounted () {
-    axios({method: 'GET', url: '/api/todos'}).then(result => {
-      this.todos = result.data
-    }, error => {
-      console.error(error)
-    })
+  methods: {
+    check: function (event) {
+      const index = event.target.dataset.index
+      const todo = this.todoList[index]
+      todo.status = event.target.checked ? 'DONE' : 'TODO'
+      axios({method: 'PUT', url: `/api/todos/${todo.id}`, data: {...todo}}).then(result => {
+
+      }, error => {
+        console.error(error)
+      })
+    }
   }
 }
 </script>
