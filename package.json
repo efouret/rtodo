@@ -1,0 +1,16 @@
+{
+  "name": "rtodo",
+  "version": "1.0.0",
+  "repository": "https://github.com/efouret/rtodo",
+  "devDependencies": {
+    "subpackage": "^1.1.0"
+  },
+  "subPackages": [
+    "backend",
+    "frontend"
+  ],
+  "scripts": {
+    "postinstall": "subpkg install",
+    "test": "subpkg run test"
+  }
+}
