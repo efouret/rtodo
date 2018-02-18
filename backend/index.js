@@ -13,7 +13,7 @@ db.defaults({
   .write()
 
 function getAllTodos(req, res, next) {
-  const todos = db.get('todos').value()
+  const todos = db.get('todos').sortBy('dueDate').value()
   res.send(todos)
   next()
 }
@@ -30,19 +30,7 @@ function getTodo(req, res, next) {
 
 function postTodo(req, res, next) {
   const todo = req.body
-  const errors = []
-
-  if (!todo.name) {
-    errors.push('missing-name')
-  }
-
-  if (todo.repeat && !todo.repeat.match(/^[1-9][0-9]* (day|week|month|year)s?$/)) {
-    errors.push('invalid-repeat')
-  }
-
-  if (todo.dueDate && !moment(todo.dueDate, moment.ISO_8601).isValid()) {
-    errors.push('invalid-dueDate')
-  }
+  const errors = validateTodo(todo, true)
 
   if (errors.length > 0) {
     res.send(400, {errors})
@@ -54,6 +42,7 @@ function postTodo(req, res, next) {
   const id = db.get('idSequence').value()
   todo.id = id
   todo.status = 'TODO'
+  todo.history = []
   db.get('todos').push(todo).write()
   res.header('Location', `/todos/${id}`)
   res.send(201)
@@ -62,11 +51,63 @@ function postTodo(req, res, next) {
 
 function putTodo(req, res, next) {
   const todo = db.get('todos').find({id: Number(req.params.id)}).value()
+  if (!todo) {
+    res.send(404, {errors: ['todo-not-found']})
+    next()
+    return
+  }
+
   const newTodo = req.body
-  if (newTodo.status) todo.status = req.body.status
-  if (newTodo.name) todo.name = req.body.name
-  // TODO update other fields
-  // TODO save previous state
+  const errors = validateTodo(newTodo, false)
+
+  if (errors.length > 0) {
+    res.send(400, {errors})
+    next()
+    return
+  }
+
+  const historyEntry = {date: moment().toISOString()}
+
+  if (newTodo.name && newTodo.name !== todo.name) {
+    historyEntry.previousName = todo.name
+    historyEntry.newName = newTodo.name
+    todo.name = newTodo.name
+  }
+
+  if (newTodo.status && newTodo.status !== todo.status) {
+    if (newTodo.status === 'DONE' && todo.repeat) {
+      const fromMoment = todo.repeatFrom === 'completion' ? (req.query.completionDate ? moment(req.query.completionDate, moment.ISO_8601) : moment()) : moment(todo.dueDate, moment.ISO_8601)
+      historyEntry.completionDate = fromMoment.toISOString()
+      const repeatInc = todo.repeat.split(' ')[0]
+      const repeatUnit = todo.repeat.split(' ')[1]
+      let newDueDate = fromMoment.add(repeatInc, repeatUnit)
+      historyEntry.previousDueDate = todo.dueDate
+      historyEntry.newDueDate = newDueDate
+      todo.dueDate = newDueDate
+      historyEntry.previousStatus = todo.status
+      historyEntry.newStatus = newTodo.status
+      todo.status = 'TODO'
+    } else {
+      historyEntry.previousStatus = todo.status
+      historyEntry.newStatus = newTodo.status
+      todo.status = newTodo.status
+    }
+  }
+
+  if (newTodo.dueDate && newTodo.dueDate !== todo.dueDate) {
+    historyEntry.previousDueDate = todo.dueDate
+    historyEntry.newDueDate = newTodo.dueDate
+    todo.dueDate = newTodo.dueDate
+  }
+
+  if (newTodo.repeat && newTodo.repeat !== todo.repeat) {
+    historyEntry.previousRepeat = todo.repeat
+    historyEntry.newRepeat = newTodo.repeat
+    todo.repeat = newTodo.repeat
+  }
+
+  todo.history.push(historyEntry)
+
   db.write()
   res.send(204)
   next()
@@ -76,6 +117,40 @@ function deleteTodo(req, res, next) {
   db.get('todos').remove({id: Number(req.params.id)}).write()
   res.send(204)
   next()
+}
+
+function validateTodo(todo, creation) {
+  const errors = []
+
+  if (!todo.name && creation) {
+    errors.push('missing-name')
+  }
+
+  if (!creation && todo.status && !todo.status.match(/^(TODO|DONE)$/)) {
+    errors.push('invalid-status')
+  }
+
+  if (todo.repeat && !todo.repeat.match(/^[1-9][0-9]* (day|week|month|year)s?$/)) {
+    errors.push('invalid-repeat')
+  }
+
+  if (todo.dueDate && !moment(todo.dueDate, moment.ISO_8601).isValid()) {
+    errors.push('invalid-dueDate')
+  }
+
+  if (todo.repeatFrom && !todo.repeatFrom.match(/^(completion|due)$/)) {
+    errors.push('invalid-repeat-from')
+  }
+
+  if (todo.repeat && !todo.repeatFrom) {
+    errors.push('repeatFrom-needed-for-repeat')
+  }
+
+  if (todo.repeat && !todo.dueDate) {
+    errors.push('dueDate-needed-for-repeat')
+  }
+
+  return errors
 }
 
 const server = restify.createServer({
