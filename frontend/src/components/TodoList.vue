@@ -1,5 +1,13 @@
 <template>
   <table class="todoList">
+      <thead>
+        <tr>
+          <th></th>
+          <th>Task</th>
+          <th>Due date</th>
+          <th>Repeat</th>
+        </tr>
+      </thead>
       <tbody>
         <template v-for="(todo, index) in todoList">
           <tr class="todoList-task" :class="{'todoList-task--even': index % 2 === 0}" :key="todo.id">
@@ -8,7 +16,7 @@
               <label :for="`todo-checkbox-${todo.id}`" class="todoList-task-checkbox"></label>
             </td>
             <td class="todoList-task-details">{{todo.name}}</td>
-            <td class="todoList-task-details">{{todo.dueDate}}</td>
+            <td class="todoList-task-details">{{todo.dueDateFormatted}}</td>
             <td class="todoList-task-details">{{todo.repeat}}</td>
           </tr>
         </template>
@@ -18,12 +26,16 @@
 
 <script>
 import axios from 'axios'
+import moment from 'moment'
 
 export default {
   name: 'todo-list',
   props: ['todos'],
   computed: {
     todoList: function () {
+      this.todos.forEach(todo => {
+        if (todo.dueDate) todo.dueDateFormatted = moment(todo.dueDate).format('DD/MM/YYYY')
+      })
       return this.todos
     }
   },
@@ -47,6 +59,11 @@ export default {
   width: 100%;
 }
 
+th {
+  font-weight: 600;
+  text-align: left;
+}
+
 .todoList-task {
   background-color: #fff;
 }
@@ -57,12 +74,13 @@ export default {
 }
 
 .todoList-task-details {
-  padding: 0.4rem 0.5rem;
+  padding: 0.4rem 0;
 }
 
 .todoList-task-details--checkbox {
   position: relative;
   max-width: 1rem;
+  padding-left: 0.5rem;
 }
 
 .todoList-task-details--checkbox input[type="checkbox"] {
