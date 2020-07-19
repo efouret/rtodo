@@ -13,7 +13,7 @@
     "build": "node build/build.js"
   },
   "dependencies": {
-    "axios": "^0.17.1",
+    "axios": "^0.18.1",
     "moment": "^2.20.1",
     "reset-css": "^2.2.1",
     "vue": "^2.5.2",
